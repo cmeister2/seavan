@@ -1,0 +1,20 @@
+[package]
+name = "seavan"
+version = "0.0.0"
+authors = [
+    "Max Dymond <cmeister2@gmail.com>",
+]
+edition = "2018"
+license = "MIT"
+description = "Wrap files in single container layers for later composition"
+homepage = "https://github.com/cmeister2/seavan"
+repository = "https://github.com/cmeister2/seavan"
+readme = "README.md"
+keywords = ["docker"]
+categories = ["filesystem", "virtualization"]
+
+[dependencies]
+
+[dev-dependencies]
+
+[features]
