@@ -1,3 +1,5 @@
+//! Useful utilities for seavan
+
 use crate::error::SeavanError;
 use regex::Captures;
 use std::borrow::Cow;
