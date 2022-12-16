@@ -1,6 +1,22 @@
 //! # seavan
 //!
 //! A library which wraps files in a container layer for later composition.
+//!
+//! # Examples
+//!
+//! ```
+//! fn main() -> Result<(), Box<dyn std::error::Error>> {
+//!   use seavan::Seavan;
+//!   let wrap = Seavan::new("README.md")?
+//!     .with_registry("acr.azurecr.io")?
+//!     .with_tag("readme")?;
+//!
+//!   /// This creates the image using Docker. The user must be able to run
+//!   /// Docker commands.
+//!   let repo_name_and_tag = wrap.create_image()?;
+//!   Ok(())
+//! }
+//! ```
 #![deny(
     missing_docs,
     trivial_casts,
@@ -31,8 +47,13 @@ use tempfile::tempfile;
 /// makes it harder for people to use DockerHub for storage.
 const PACKAGE_ROOT: &str = "seavanpkg";
 
+// Default tag
+const DEFAULT_TAG: &str = "latest";
+
 /// A structure representing a file wrapped in a Docker container shell.
+#[derive(Debug)]
 pub struct Seavan {
+    registry: Option<String>,
     path: PathBuf,
     tag: String,
 }
@@ -44,34 +65,75 @@ impl Seavan {
     /// # Arguments
     ///
     /// * `path`: The file path to be wrapped in a Docker container shell
-    /// * `tag`: An optional tag. If not set, `latest` is used.
     ///
     /// # Examples
     /// ```
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// use seavan::Seavan;
-    /// let wrap = Seavan::new("README.md", None)?;
-    ///
-    /// /// This creates the image using Docker. The user must be able to run
-    /// /// Docker commands.
-    /// let repo_name_and_tag = wrap.create_image()?;
+    /// let wrap = Seavan::new("README.md")?;
     /// # Ok(())
     /// # }
     /// ```
     ///
-    pub fn new<S: AsRef<OsStr> + ?Sized>(path: &S, tag: Option<&str>) -> SeavanResult<Self> {
+    pub fn new<S: AsRef<OsStr> + ?Sized>(path: &S) -> SeavanResult<Self> {
         // Store the canonical path.
         let path = Path::new(path);
         let canonical_path = std::fs::canonicalize(path)?;
         debug!("Wrapping path {}", canonical_path.display());
 
-        // Store the docker-safe version of the tag.
-        let safe_tag = docker_safe_string(tag.unwrap_or("latest"))?;
-
         Ok(Self {
             path: canonical_path,
-            tag: safe_tag.into(),
+            tag: DEFAULT_TAG.into(),
+            registry: None,
         })
+    }
+
+    /// Specifies the tag to be used for the image instead of the default.
+    /// The tag will be sanitised before use.
+    ///
+    /// # Arguments
+    ///
+    /// * `tag`: The image tag to be used.
+    ///
+    /// # Examples
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// use seavan::Seavan;
+    /// let wrap = Seavan::new("README.md")?.with_tag("readme")?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn with_tag(mut self, tag: &str) -> SeavanResult<Self> {
+        // Store the docker-safe version of the tag.
+        let safe_tag = docker_safe_string(tag)?;
+
+        self.tag = safe_tag.into_owned();
+        Ok(self)
+    }
+
+    /// Specifies the registry to be used for the image instead of the default.
+    ///
+    /// Registries starting `docker.io` will be rejected in order to discourage
+    /// use of Docker Hub as a storage mechanism.
+    ///
+    /// # Arguments
+    ///
+    /// * `registry`: The image registry to be used.
+    ///
+    /// # Examples
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// use seavan::Seavan;
+    /// let wrap = Seavan::new("README.md")?.with_registry("acr.azurecr.io")?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn with_registry(mut self, registry: &str) -> SeavanResult<Self> {
+        if registry.starts_with("docker.io") {
+            return Err(SeavanError::BannedRegistryPrefix);
+        }
+        self.registry = Some(registry.into());
+        Ok(self)
     }
 
     // Helper method to get a &str version of the file's basename.
@@ -101,10 +163,15 @@ impl Seavan {
 
     /// Returns the generated repository name and tag for the container image.
     pub fn repository_name_and_tag(&self) -> SeavanResult<String> {
+        let registryroot = match &self.registry {
+            Some(registry) => format!("{}/{}", registry, PACKAGE_ROOT),
+            None => PACKAGE_ROOT.into(),
+        };
+
         let safe_filename = docker_safe_string(self.filename_str()?)?;
         Ok(format!(
             "{}/{}--{}:{}",
-            PACKAGE_ROOT,
+            registryroot,
             self.hash()?,
             safe_filename,
             self.tag
@@ -190,12 +257,29 @@ mod tests {
         log_init();
 
         // Wrap Cargo.toml - it has capital letters and a fullstop.
-        let wrap = Seavan::new("Cargo.toml", Some("Some r4ndom t@g with character$"))?;
+        let wrap = Seavan::new("Cargo.toml")?
+            .with_registry("acr.azurecr.io")?
+            .with_tag("Some r4ndom t@g with character$")?;
         let image_tag = wrap.create_image()?;
         info!("Created image {}", image_tag);
 
         // Clean up.
         clean_up_docker_image(&image_tag)?;
+        Ok(())
+    }
+
+    #[test]
+    fn bad_guy() -> Result<(), Box<dyn std::error::Error>> {
+        log_init();
+
+        // Fail to specify a bad registry.
+        assert!(matches!(
+            Seavan::new("Cargo.toml")?
+                .with_registry("docker.io/library")
+                .expect_err("Expected failure"),
+            SeavanError::BannedRegistryPrefix
+        ));
+
         Ok(())
     }
 }
