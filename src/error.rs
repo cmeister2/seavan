@@ -17,6 +17,10 @@ pub enum SeavanError {
     #[error("Failed string conversion")]
     FailedStrConversion,
 
+    /// Banned registry prefix: docker.io
+    #[error("Banned registry prefix: docker.io")]
+    BannedRegistryPrefix,
+
     /// There was a failure while calling Docker to build the image.
     #[error("Docker build failure: {0}")]
     DockerBuildFailure(String),
