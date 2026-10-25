@@ -5,6 +5,7 @@ authors = [
     "Max Dymond <cmeister2@gmail.com>",
 ]
 edition = "2018"
+rust-version = "1.60.0"
 license = "MIT"
 description = "Wrap files in single container layers for later composition"
 homepage = "https://github.com/cmeister2/seavan"

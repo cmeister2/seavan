@@ -1,2 +1,2 @@
 /target
-/Cargo.lock
+# Cargo.lock is tracked to keep the Rust 1.60 CI dependency graph reproducible.

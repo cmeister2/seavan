@@ -33,6 +33,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: check
+          args: --locked
 
   test:
     name: Test Suite
@@ -52,6 +53,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: test
+          args: --locked
 
   fmt:
     name: Rustfmt
@@ -93,7 +95,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: -- -D warnings
+          args: --locked -- -D warnings
 
   tarpaulin:
     name: Tarpaulin
