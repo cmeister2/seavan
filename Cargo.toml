@@ -17,7 +17,7 @@ categories = ["filesystem", "virtualization"]
 [dependencies]
 log = "0.4.17"
 regex = "1.7.0"
-sha2 = "0.10.6"
+sha2 = "0.11.0"
 tempfile = "3.3.0"
 thiserror = "1.0.37"
 
