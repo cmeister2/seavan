@@ -5,7 +5,7 @@ authors = [
     "Max Dymond <cmeister2@gmail.com>",
 ]
 edition = "2018"
-rust-version = "1.71.0"
+rust-version = "1.88.0"
 license = "MIT"
 description = "Wrap files in single container layers for later composition"
 homepage = "https://github.com/cmeister2/seavan"
@@ -17,11 +17,11 @@ categories = ["filesystem", "virtualization"]
 [dependencies]
 log = "0.4.17"
 regex = "1.7.0"
-sha2 = "0.10.6"
+sha2 = "0.11.0"
 tempfile = "3.3.0"
 thiserror = "1.0.37"
 
 [dev-dependencies]
-env_logger = "0.10.0"
+env_logger = "0.11.0"
 
 [features]

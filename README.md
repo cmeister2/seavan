@@ -2,7 +2,7 @@
 
 seavan is a crate which wraps files in a container layer for later composition.
 
-Requires Rust 1.71 or newer.
+Requires Rust 1.88 or newer.
 
 ## Examples
 
