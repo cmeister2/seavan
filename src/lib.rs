@@ -164,7 +164,7 @@ impl Seavan {
     /// Returns the generated repository name and tag for the container image.
     pub fn repository_name_and_tag(&self) -> SeavanResult<String> {
         let registryroot = match &self.registry {
-            Some(registry) => format!("{}/{}", registry, PACKAGE_ROOT),
+            Some(registry) => format!("{registry}/{PACKAGE_ROOT}"),
             None => PACKAGE_ROOT.into(),
         };
 
@@ -215,12 +215,12 @@ impl Seavan {
             true => {
                 // Best effort debug logging for stdout
                 if let Ok(stdout) = std::str::from_utf8(&output.stdout) {
-                    debug!("Docker output: {}", stdout);
+                    debug!("Docker output: {stdout}");
                 }
                 // Best effort debug logging for stderr - buildkit prints out
                 // to stderr rather than stdin.
                 if let Ok(stderr) = std::str::from_utf8(&output.stderr) {
-                    debug!("Docker stderr: {}", stderr);
+                    debug!("Docker stderr: {stderr}");
                 }
 
                 // Return the name of the created repository name and tag.
