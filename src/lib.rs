@@ -34,7 +34,7 @@ use crate::{
     error::{SeavanError, SeavanResult},
     utils::docker_safe_string,
 };
-use std::io::Write;
+use std::io::{Read, Write};
 use std::process::Command;
 use std::{ffi::OsStr, path::Path};
 use std::{io::Seek, path::PathBuf};
@@ -156,15 +156,23 @@ impl Seavan {
     fn hash(&self) -> SeavanResult<String> {
         let mut file = std::fs::File::open(&self.path)?;
         let mut hasher = sha2::Sha256::new();
-        let _ = std::io::copy(&mut file, &mut hasher)?;
+        let mut buffer = [0; 8192];
+        loop {
+            match file.read(&mut buffer) {
+                Ok(0) => break,
+                Ok(count) => hasher.update(&buffer[..count]),
+                Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+                Err(error) => return Err(error.into()),
+            }
+        }
         let hash = hasher.finalize();
-        Ok(format!("{:x}", hash))
+        Ok(hash.iter().map(|byte| format!("{byte:02x}")).collect())
     }
 
     /// Returns the generated repository name and tag for the container image.
     pub fn repository_name_and_tag(&self) -> SeavanResult<String> {
         let registryroot = match &self.registry {
-            Some(registry) => format!("{}/{}", registry, PACKAGE_ROOT),
+            Some(registry) => format!("{registry}/{PACKAGE_ROOT}"),
             None => PACKAGE_ROOT.into(),
         };
 
@@ -215,12 +223,12 @@ impl Seavan {
             true => {
                 // Best effort debug logging for stdout
                 if let Ok(stdout) = std::str::from_utf8(&output.stdout) {
-                    debug!("Docker output: {}", stdout);
+                    debug!("Docker output: {stdout}");
                 }
                 // Best effort debug logging for stderr - buildkit prints out
                 // to stderr rather than stdin.
                 if let Ok(stderr) = std::str::from_utf8(&output.stderr) {
-                    debug!("Docker stderr: {}", stderr);
+                    debug!("Docker stderr: {stderr}");
                 }
 
                 // Return the name of the created repository name and tag.
@@ -249,6 +257,31 @@ mod tests {
         let output = Command::new("docker").args(["rmi", image_name]).output()?;
         assert!(output.status.success());
         info!("Removed {}", image_name);
+        Ok(())
+    }
+
+    #[test]
+    fn hashes_file_contents_as_lowercase_sha256() -> Result<(), Box<dyn std::error::Error>> {
+        let large = vec![b'a'; 8193];
+        let cases: [(&[u8], &str); 3] = [
+            (
+                b"",
+                "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            ),
+            (
+                b"abc",
+                "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+            ),
+            (
+                &large,
+                "9c10c48d1f1d6618db88fde2c25409181c9201ed34ec6815d62bcf57c10d177b",
+            ),
+        ];
+        for (contents, expected) in cases {
+            let mut file = tempfile::NamedTempFile::new()?;
+            file.write_all(contents)?;
+            assert_eq!(Seavan::new(file.path())?.hash()?, expected);
+        }
         Ok(())
     }
 
